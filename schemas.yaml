@@ -1,0 +1,3481 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: https://example.org/sdlc-pipeline/v2.0
+title: SDLC Formal Verification Pipeline Schemas
+version: 2.0.0
+pipeline_transformations:
+  assign_requirement_ids:
+    after: m1_requirement_extraction
+    before: m2_ambiguity
+    format: REQ-{sequence:03d}
+  canonicalize_context:
+    after: m_context
+    before: m2_ambiguity
+  assign_ambiguity_ids:
+    after: m2_ambiguity
+    before: m3_clarification
+    format: AMB-{requirement_id}-{sequence:03d}
+  assign_clarification_ids:
+    after: m3_clarification
+    before: m4_refinement
+    format: CLAR-{sequence:03d}
+  canonicalize_refined_context:
+    after: m_context_refined
+    before: m_ir
+  assign_refinement_ids:
+    after: m4_refinement
+    before: m_ir
+    format: REF-{sequence:03d}
+  assign_ir_ids:
+    after: m_ir
+    before: m_preamble
+    format: IR-{sequence:03d}
+  assign_preamble_declaration_ids:
+    after: m_preamble
+    before: m5_lean
+    format: PDECL-{sequence:03d}
+  assign_preamble_symbol_ids:
+    after: m_preamble
+    before: m5_lean
+    format: SYM-{sequence:03d}
+  assign_m5_declaration_ids:
+    after: m5_lean
+    before: lean_assembly
+    format: M5DECL-{sequence:03d}
+$defs:
+  nullable_line:
+    oneOf:
+    - type: integer
+      minimum: 1
+    - type: 'null'
+  comparison_operator:
+    type: string
+    enum:
+    - '='
+    - '!='
+    - <
+    - <=
+    - '>'
+    - '>='
+  evidence:
+    type: object
+    additionalProperties: false
+    required:
+    - source
+    - source_ref
+    - quote
+    - start_line
+    - end_line
+    properties:
+      source:
+        type: string
+        enum:
+        - original_document
+        - requirement
+        - context
+        - refined_requirement
+        - clarification_decision
+        - previous_context
+      source_ref:
+        oneOf:
+        - type: string
+        - type: 'null'
+      quote:
+        type: string
+        minLength: 1
+      start_line:
+        $ref: '#/$defs/nullable_line'
+      end_line:
+        $ref: '#/$defs/nullable_line'
+  unresolved_item:
+    type: object
+    additionalProperties: false
+    required:
+    - term
+    - missing
+    properties:
+      term:
+        type: string
+      missing:
+        type: string
+  cardinality:
+    type: object
+    additionalProperties: false
+    required:
+    - expression
+    - operator
+    - value
+    - resolved
+    properties:
+      expression:
+        type: string
+      operator:
+        oneOf:
+        - $ref: '#/$defs/comparison_operator'
+        - type: 'null'
+      value: {}
+      resolved:
+        type: boolean
+  scope_spec:
+    type: object
+    additionalProperties: false
+    required:
+    - scope
+    - applicable_requirement_ids
+    properties:
+      scope:
+        type: string
+        enum:
+        - requirement
+        - document
+        - specified_requirements
+      applicable_requirement_ids:
+        type: array
+        items:
+          type: string
+    allOf:
+    - if:
+        properties:
+          scope:
+            const: specified_requirements
+      then:
+        properties:
+          applicable_requirement_ids:
+            minItems: 1
+    - if:
+        properties:
+          scope:
+            const: document
+      then:
+        properties:
+          applicable_requirement_ids:
+            maxItems: 0
+  typed_operand:
+    type: object
+    additionalProperties: false
+    required:
+    - kind
+    properties:
+      kind:
+        type: string
+        enum:
+        - attribute_ref
+        - entity_ref
+        - actor_ref
+        - action_ref
+        - event_ref
+        - state_ref
+        - relationship_ref
+        - condition_ref
+        - shared_symbol_request
+        - value_domain_member
+        - decision_value
+        - literal
+        - count
+        - measure
+        - unresolved
+      ref:
+        type: string
+      request_ref:
+        type: string
+      domain_ref:
+        type: string
+      value: {}
+      value_type:
+        type: string
+      unit:
+        oneOf:
+        - type: string
+        - type: 'null'
+      source_text:
+        type: string
+    allOf:
+    - if:
+        properties:
+          kind:
+            enum:
+            - attribute_ref
+            - entity_ref
+            - actor_ref
+            - action_ref
+            - event_ref
+            - state_ref
+            - relationship_ref
+            - condition_ref
+            - shared_symbol_request
+      then:
+        required:
+        - ref
+    - if:
+        properties:
+          kind:
+            const: literal
+      then:
+        required:
+        - value
+        - value_type
+    - if:
+        properties:
+          kind:
+            const: value_domain_member
+      then:
+        required:
+        - domain_ref
+        - value
+    - if:
+        properties:
+          kind:
+            const: decision_value
+      then:
+        required:
+        - request_ref
+        - value
+    - if:
+        properties:
+          kind:
+            const: unresolved
+      then:
+        required:
+        - source_text
+  context_actor:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - actor_kind
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      actor_kind:
+        type: string
+        enum:
+        - human_role
+        - system
+        - external_system
+        - organization
+        - service
+        - unknown
+  context_entity:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - entity_kind
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      entity_kind:
+        type: string
+        enum:
+        - domain_object
+        - record
+        - resource
+        - message
+        - document
+        - transaction
+        - request
+        - response
+        - data_object
+        - service_object
+        - device
+        - interface
+        - session
+        - credential
+        - unknown
+  context_role:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - base_concept_name
+    - role_name
+    - applies_to_kind
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      base_concept_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      role_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      applies_to_kind:
+        type: string
+        enum:
+        - actor
+        - entity
+        - unknown
+  context_attribute:
+    type: object
+    additionalProperties: false
+    required:
+    - owner_name
+    - name
+    - value_type
+    - unit_name
+    - single_valued
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      owner_name:
+        type: string
+      name:
+        type: string
+      value_type:
+        type: string
+        enum:
+        - Nat
+        - Int
+        - Bool
+        - String
+        - enum
+        - reference
+        - unknown
+      unit_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      single_valued:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+  context_action:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - actor_names
+    - target_names
+    - parameter_names
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      actor_names:
+        type: array
+        items:
+          type: string
+      target_names:
+        type: array
+        items:
+          type: string
+      parameter_names:
+        type: array
+        items:
+          type: string
+  context_event:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - participant_names
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      participant_names:
+        type: array
+        items:
+          type: string
+  context_state:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - subject_names
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      subject_names:
+        type: array
+        items:
+          type: string
+  context_value_domain:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - subject_names
+    - attribute_names
+    - values
+    - closed
+    - single_valued
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      subject_names:
+        type: array
+        items:
+          type: string
+      attribute_names:
+        type: array
+        items:
+          type: string
+      values:
+        type: array
+        items:
+          type: string
+      closed:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      single_valued:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+  context_decision_domain:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - subject_names
+    - action_names
+    - values
+    - closed
+    - single_valued
+    - mutually_exclusive
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      subject_names:
+        type: array
+        items:
+          type: string
+      action_names:
+        type: array
+        items:
+          type: string
+      values:
+        type: array
+        items:
+          type: string
+      closed:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      single_valued:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      mutually_exclusive:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+  distinct_value:
+    type: object
+    additionalProperties: false
+    required:
+    - domain_name
+    - first_value
+    - second_value
+    - relation
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      domain_name:
+        type: string
+      first_value:
+        type: string
+      second_value:
+        type: string
+      relation:
+        type: string
+        enum:
+        - distinct
+        - mutually_exclusive
+  context_definition:
+    type: object
+    additionalProperties: false
+    required:
+    - term
+    - definition
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      term:
+        type: string
+      definition:
+        type: string
+  context_relationship:
+    type: object
+    additionalProperties: false
+    required:
+    - type
+    - source_name
+    - target_name
+    - relationship_name
+    - direction
+    - cardinality
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      type:
+        type: string
+        enum:
+        - equivalence
+        - specialization
+        - part_of
+        - ownership
+        - association
+        - dependency
+        - distinct
+        - other
+      source_name:
+        type: string
+      target_name:
+        type: string
+      relationship_name:
+        type: string
+      direction:
+        type: string
+        enum:
+        - source_to_target
+        - target_to_source
+        - symmetric
+        - unknown
+      cardinality:
+        oneOf:
+        - $ref: '#/$defs/cardinality'
+        - type: 'null'
+      justification:
+        type: string
+  relationship_characteristic:
+    type: object
+    additionalProperties: false
+    required:
+    - relationship_name
+    - source_name
+    - target_name
+    - functional
+    - total
+    - symmetric
+    - asymmetric
+    - irreflexive
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      relationship_name:
+        type: string
+      source_name:
+        type: string
+      target_name:
+        type: string
+      functional:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      total:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      symmetric:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      asymmetric:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+      irreflexive:
+        oneOf:
+        - type: boolean
+        - type: 'null'
+  representation_characteristic:
+    type: object
+    additionalProperties: false
+    required:
+    - type
+    - subject_names
+    - related_names
+    - properties
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      type:
+        type: string
+        enum:
+        - role_not_type
+        - relation_not_attribute
+        - independent_effects
+        - shared_decision_domain
+        - state_transition_required
+        - before_after_state_required
+        - event_ordering_required
+        - unit_preservation_required
+      subject_names:
+        type: array
+        items:
+          type: string
+      related_names:
+        type: array
+        items:
+          type: string
+      properties:
+        type: object
+  context_unit:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - symbol
+    - quantity_kind
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      name:
+        type: string
+      symbol:
+        oneOf:
+        - type: string
+        - type: 'null'
+      quantity_kind:
+        type: string
+        enum:
+        - duration
+        - count
+        - size
+        - rate
+        - currency
+        - percentage
+        - unknown
+  context_constraint:
+    type: object
+    additionalProperties: false
+    required:
+    - description
+    - constraint_type
+    - applies_to_names
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      concept_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      context_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      formal_name_candidate:
+        oneOf:
+        - type: string
+        - type: 'null'
+      semantic_category:
+        type: string
+      source_forms:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+      description:
+        type: string
+      constraint_type:
+        type: string
+        enum:
+        - unit_semantics
+        - value_domain
+        - global_invariant
+        - naming_rule
+        - environmental_constraint
+        - interface_constraint
+        - other
+      applies_to_names:
+        type: array
+        items:
+          type: string
+  unresolved_relationship:
+    type: object
+    additionalProperties: false
+    required:
+    - type
+    - source_name
+    - target_name
+    - reason
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      type:
+        type: string
+      source_name:
+        type: string
+      target_name:
+        type: string
+      reason:
+        type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+        minItems: 1
+  unresolved_domain_property:
+    type: object
+    additionalProperties: false
+    required:
+    - property_type
+    - subject_names
+    - domain_name
+    - values
+    - relationship_name
+    - reason
+    - affected_source_terms
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      property_type:
+        type: string
+        enum:
+        - value_domain_membership
+        - value_domain_completeness
+        - decision_domain_membership
+        - domain_single_valuedness
+        - domain_multi_valuedness
+        - value_distinctness
+        - effect_exclusivity
+        - effect_independence
+        - relation_functionality
+        - relation_totality
+        - relation_symmetry
+        - state_model
+        - transition_model
+        - other
+      subject_names:
+        type: array
+        items:
+          type: string
+      domain_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      values:
+        type: array
+        items:
+          type: string
+      relationship_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      reason:
+        type: string
+      affected_source_terms:
+        type: array
+        items:
+          type: string
+      affected_requirement_ids:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+  context_concern:
+    type: object
+    additionalProperties: false
+    required:
+    - category
+    - terms
+    - concern
+    - evidence
+    properties:
+      id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      category:
+        type: string
+        enum:
+        - inconsistent_usage
+        - missing_definition
+        - unresolved_role
+        - unresolved_type
+        - unresolved_unit
+        - unresolved_state_model
+        - unresolved_relationship
+        - unresolved_value_domain
+        - unresolved_decision_domain
+        - unresolved_domain_property
+        - evidence_boundary
+        - other
+      terms:
+        type: array
+        items:
+          type: string
+      concern:
+        type: string
+      evidence:
+        type: array
+        items:
+          $ref: '#/$defs/evidence'
+  global_context:
+    type: object
+    additionalProperties: false
+    required:
+    - actors
+    - entities
+    - roles
+    - attributes
+    - actions
+    - events
+    - states
+    - value_domains
+    - decision_domains
+    - distinct_values
+    - definitions
+    - relationships
+    - relationship_characteristics
+    - representation_characteristics
+    - units
+    - constraints
+    - unresolved_relationships
+    - unresolved_domain_properties
+    - context_concerns
+    properties:
+      actors: &id002
+        type: array
+        items:
+          $ref: '#/$defs/context_actor'
+      entities: &id003
+        type: array
+        items:
+          $ref: '#/$defs/context_entity'
+      roles: &id004
+        type: array
+        items:
+          $ref: '#/$defs/context_role'
+      attributes: &id005
+        type: array
+        items:
+          $ref: '#/$defs/context_attribute'
+      actions: &id006
+        type: array
+        items:
+          $ref: '#/$defs/context_action'
+      events: &id007
+        type: array
+        items:
+          $ref: '#/$defs/context_event'
+      states: &id008
+        type: array
+        items:
+          $ref: '#/$defs/context_state'
+      value_domains: &id009
+        type: array
+        items:
+          $ref: '#/$defs/context_value_domain'
+      decision_domains: &id010
+        type: array
+        items:
+          $ref: '#/$defs/context_decision_domain'
+      distinct_values: &id011
+        type: array
+        items:
+          $ref: '#/$defs/distinct_value'
+      definitions: &id012
+        type: array
+        items:
+          $ref: '#/$defs/context_definition'
+      relationships: &id013
+        type: array
+        items:
+          $ref: '#/$defs/context_relationship'
+      relationship_characteristics: &id014
+        type: array
+        items:
+          $ref: '#/$defs/relationship_characteristic'
+      representation_characteristics: &id015
+        type: array
+        items:
+          $ref: '#/$defs/representation_characteristic'
+      units: &id016
+        type: array
+        items:
+          $ref: '#/$defs/context_unit'
+      constraints: &id017
+        type: array
+        items:
+          $ref: '#/$defs/context_constraint'
+      unresolved_relationships: &id018
+        type: array
+        items:
+          $ref: '#/$defs/unresolved_relationship'
+      unresolved_domain_properties: &id019
+        type: array
+        items:
+          $ref: '#/$defs/unresolved_domain_property'
+      context_concerns: &id020
+        type: array
+        items:
+          $ref: '#/$defs/context_concern'
+  semantic_effect:
+    type: object
+    additionalProperties: false
+    required:
+    - operation
+    - scope
+    - applicable_requirement_ids
+    properties:
+      operation:
+        type: string
+        enum:
+        - add_relationship
+        - promote_unresolved_relationship
+        - resolve_reference
+        - set_action_actor
+        - set_action_object
+        - set_comparison
+        - set_numeric_value
+        - set_unit
+        - set_duration
+        - set_quantifier
+        - set_modality
+        - set_transition
+        - set_value_domain
+        - set_cardinality
+        - define_term
+        - define_relationship
+        - split_requirement
+        - supersede_context_fact
+        - set_action_scope
+        - set_condition_scope
+        - set_exception_scope
+        - set_negation_scope
+        - set_permission_scope
+        - set_prohibition_scope
+        - set_temporal_order
+        - set_temporal_endpoint
+        - set_state
+        - classify_role
+        - add_actor
+        - add_entity
+        - add_role
+        - add_attribute
+        - add_action
+        - add_event
+        - add_state
+        - add_value_domain
+        - add_unit
+        - add_document_constraint
+        - add_source_form
+        - remove_unresolved_relationship
+        - replace_relationship
+        - mark_distinct
+        - add_definition
+        - replace_definition
+        - set_relation_functionality
+        - set_relation_totality
+        - set_relation_symmetry
+        - set_value_domain_closed
+        - set_value_domain_open
+        - define_exclusive_decision_domain
+        - define_open_decision_domain
+        - keep_independent_effects
+        - add_decision_value
+        - mark_values_distinct
+        - mark_values_mutually_exclusive
+        - set_domain_single_valued
+        - set_domain_multi_valued
+      scope:
+        type: string
+        enum:
+        - requirement
+        - document
+        - specified_requirements
+      applicable_requirement_ids:
+        type: array
+        items:
+          type: string
+      reason:
+        type: string
+      affected_requirement_id:
+        type: string
+      affected_ambiguity_ids:
+        type: array
+        items:
+          type: string
+      relationship_type:
+        type: string
+      relationship_name:
+        type: string
+      source_name:
+        type: string
+      target_name:
+        type: string
+      target_phrase:
+        type: string
+      resolves_to:
+        type: string
+      action_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      actor_name:
+        type: string
+      object_name:
+        type: string
+      target:
+        type: string
+      operator:
+        $ref: '#/$defs/comparison_operator'
+      value: {}
+      value_type:
+        type: string
+      unit_required:
+        type: boolean
+      allowed_units:
+        type: array
+        items:
+          type: string
+      unit:
+        type: string
+      quantifier:
+        type: string
+      domain_name:
+        type: string
+      modality:
+        type: string
+      before_state:
+        type: string
+      after_state:
+        type: string
+      values:
+        type: array
+        items:
+          type: string
+      closed:
+        type: boolean
+      single_valued:
+        type: boolean
+      mutually_exclusive:
+        type: boolean
+      functional:
+        type: boolean
+      total:
+        type: boolean
+      symmetric:
+        type: boolean
+      effects:
+        type: array
+        items:
+          type: string
+      subject_name:
+        type: string
+      components:
+        type: array
+        items:
+          type: string
+        minItems: 2
+      expression:
+        type: string
+      definition:
+        type: string
+      fact_ref:
+        type: string
+      replacement:
+        type: object
+      payload:
+        type: object
+      required_fields:
+        type: array
+        items:
+          type: string
+      classification:
+        type: string
+      base_concept_name:
+        type: string
+    allOf:
+    - if:
+        properties:
+          operation:
+            const: add_relationship
+      then:
+        required:
+        - relationship_type
+        - source_name
+        - target_name
+    - if:
+        properties:
+          operation:
+            const: resolve_reference
+      then:
+        required:
+        - target_phrase
+        - resolves_to
+    - if:
+        properties:
+          operation:
+            enum:
+            - set_action_actor
+            - set_action_object
+      then:
+        required:
+        - action_name
+    - if:
+        properties:
+          operation:
+            const: set_comparison
+      then:
+        required:
+        - target
+        - operator
+        - value
+    - if:
+        properties:
+          operation:
+            enum:
+            - set_numeric_value
+            - set_duration
+      then:
+        required:
+        - target
+        - value_type
+        - unit_required
+        - allowed_units
+    - if:
+        properties:
+          operation:
+            enum:
+            - define_exclusive_decision_domain
+            - define_open_decision_domain
+      then:
+        required:
+        - domain_name
+        - subject_name
+        - values
+        - closed
+        - single_valued
+        - mutually_exclusive
+    - if:
+        properties:
+          operation:
+            const: keep_independent_effects
+      then:
+        required:
+        - subject_name
+        - effects
+    - if:
+        properties:
+          operation:
+            enum:
+            - mark_values_distinct
+            - mark_values_mutually_exclusive
+      then:
+        required:
+        - domain_name
+        - values
+    - if:
+        properties:
+          operation:
+            enum:
+            - set_relation_functionality
+            - set_relation_totality
+            - set_relation_symmetry
+      then:
+        required:
+        - relationship_name
+        - source_name
+        - target_name
+    - if:
+        properties:
+          operation:
+            const: split_requirement
+      then:
+        required:
+        - components
+  ambiguity:
+    type: object
+    additionalProperties: false
+    required:
+    - ambiguity_type
+    - decision_group_id
+    - target_kind
+    - target
+    - description
+    - candidate_readings
+    - semantic_impact
+    - clarification_required
+    - impacted_fields
+    - context_refs
+    - evidence
+    properties:
+      ambiguity_type:
+        type: string
+        enum:
+        - actor_identity
+        - actor_undefined
+        - entity_identity
+        - entity_undefined
+        - role_undefined
+        - role_type_confusion
+        - agent_unspecified
+        - pronoun_reference
+        - undefined_term
+        - undefined_attribute
+        - undefined_relationship
+        - quantifier_scope
+        - quantifier_missing
+        - exclusivity
+        - conjunction_scope
+        - conditional_scope
+        - negation_scope
+        - exception_scope
+        - compound_requirement
+        - vagueness
+        - numeric_boundary
+        - numeric_value_missing
+        - unit_unspecified
+        - temporal_order
+        - temporal_duration
+        - temporal_endpoint
+        - action_identity
+        - action_scope
+        - action_object
+        - permission_scope
+        - prohibition_scope
+        - modality
+        - state_identity
+        - state_transition
+        - value_domain
+        - value_domain_completeness
+        - decision_domain
+        - effect_exclusivity
+        - effect_independence
+        - domain_single_valuedness
+        - relation_functionality
+        - relation_totality
+        - relation_symmetry
+        - cardinality
+        - dependency_unresolved
+        - conflicting_context
+        - unsupported_construct
+        - other
+      decision_group_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      target_kind:
+        type: string
+        enum:
+        - phrase
+        - omission
+        - whole_requirement
+        - context_reference
+      target:
+        type: string
+      description:
+        type: string
+      candidate_readings:
+        type: array
+        items:
+          type: object
+          additionalProperties: false
+          required:
+          - label
+          - formal_effect
+          properties:
+            label:
+              type: string
+            formal_effect:
+              type: string
+      semantic_impact:
+        type: string
+        enum:
+        - high
+        - medium
+        - low
+      clarification_required:
+        type: boolean
+      impacted_fields:
+        type: array
+        items:
+          type: string
+        minItems: 1
+      context_refs:
+        type: array
+        items:
+          type: string
+      evidence:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          additionalProperties: false
+          required:
+          - source
+          - quote
+          properties:
+            source:
+              type: string
+              enum:
+              - requirement
+              - context
+            quote:
+              type: string
+  identified_ambiguity:
+    allOf:
+    - $ref: '#/$defs/ambiguity'
+    - type: object
+      required:
+      - ambiguity_id
+      properties:
+        ambiguity_id:
+          type: string
+  clarification_question:
+    type: object
+    additionalProperties: false
+    required:
+    - ambiguity_id
+    - related_ambiguity_ids
+    - decision_group_id
+    - question
+    - question_type
+    - answer_format
+    - options
+    - answer_binding
+    - input_constraints
+    - required
+    - target
+    - impacted_fields
+    - context_refs
+    properties:
+      ambiguity_id:
+        type: string
+      related_ambiguity_ids:
+        type: array
+        items:
+          type: string
+      decision_group_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      question:
+        type: string
+      question_type:
+        type: string
+        enum:
+        - semantic_identity
+        - entity_identity
+        - role_classification
+        - referent
+        - actor_assignment
+        - action_identity
+        - action_scope
+        - action_object
+        - scope
+        - quantifier
+        - boundary
+        - numeric_value
+        - unit
+        - temporal_order
+        - temporal_duration
+        - temporal_endpoint
+        - permission_scope
+        - prohibition_scope
+        - modality
+        - state_identity
+        - state_transition
+        - value_domain
+        - value_domain_completeness
+        - decision_domain
+        - effect_exclusivity
+        - effect_independence
+        - domain_cardinality
+        - relation_functionality
+        - relation_totality
+        - relation_symmetry
+        - cardinality
+        - decomposition
+        - definition
+        - relationship
+        - dependency
+        - unsupported_construct
+        - other
+      answer_format:
+        type: string
+        enum:
+        - single_choice
+        - multi_choice
+        - free_text
+      options:
+        type: array
+        items:
+          type: object
+          additionalProperties: false
+          required:
+          - label
+          - semantic_effect
+          properties:
+            label:
+              type: string
+            semantic_effect:
+              $ref: '#/$defs/semantic_effect'
+      answer_binding:
+        oneOf:
+        - $ref: '#/$defs/semantic_effect'
+        - type: 'null'
+      input_constraints:
+        type: object
+      required:
+        type: boolean
+      target:
+        type: string
+      impacted_fields:
+        type: array
+        items:
+          type: string
+      context_refs:
+        type: array
+        items:
+          type: string
+    allOf:
+    - if:
+        properties:
+          answer_format:
+            enum:
+            - single_choice
+            - multi_choice
+      then:
+        properties:
+          options:
+            minItems: 2
+          answer_binding:
+            type: 'null'
+    - if:
+        properties:
+          answer_format:
+            const: free_text
+      then:
+        properties:
+          options:
+            maxItems: 0
+        required:
+        - answer_binding
+  clarification_answer:
+    type: object
+    additionalProperties: false
+    required:
+    - clarification_id
+    - ambiguity_id
+    - answered
+    - answer_format
+    - validated_semantic_effect
+    - answer
+    properties:
+      clarification_id:
+        type: string
+      ambiguity_id:
+        type: string
+      answered:
+        type: boolean
+      answer_format:
+        type: string
+      validated_semantic_effect:
+        oneOf:
+        - $ref: '#/$defs/semantic_effect'
+        - type: array
+          items:
+            $ref: '#/$defs/semantic_effect'
+        - type: 'null'
+      answer: {}
+  remaining_ambiguity:
+    type: object
+    additionalProperties: false
+    required:
+    - ambiguity_id
+    - description
+    - reason_unresolved
+    - clarification_required
+    - impacted_fields
+    properties:
+      ambiguity_id:
+        type: string
+      description:
+        type: string
+      reason_unresolved:
+        type: string
+      clarification_required:
+        type: boolean
+      impacted_fields:
+        type: array
+        items:
+          type: string
+  signature_parameter:
+    type: object
+    additionalProperties: false
+    required:
+    - name
+    - type_ref
+    properties:
+      name:
+        type: string
+      type_ref:
+        type: string
+  signature_result:
+    type: object
+    additionalProperties: false
+    required:
+    - kind
+    properties:
+      kind:
+        type: string
+        enum:
+        - type
+        - proposition
+        - value_type
+        - concept_ref
+        - domain_ref
+        - transition_ref
+        - unit_ref
+      value_type:
+        type: string
+      type_ref:
+        type: string
+      domain_ref:
+        type: string
+      transition_ref:
+        type: string
+      unit_ref:
+        oneOf:
+        - type: string
+        - type: 'null'
+  language_neutral_signature:
+    type: object
+    additionalProperties: false
+    required:
+    - parameters
+    - result
+    properties:
+      parameters:
+        type: array
+        items:
+          $ref: '#/$defs/signature_parameter'
+      result:
+        $ref: '#/$defs/signature_result'
+  preamble_requirement:
+    type: object
+    additionalProperties: false
+    required:
+    - request_id
+    - symbol_role
+    - canonical_concept_refs
+    - context_refs
+    - requested_name
+    - signature
+    - properties
+    - source_ir_element_ids
+    - shared
+    - formalizable
+    - reason
+    - origin
+    - origin_ref
+    - unresolved
+    properties:
+      request_id:
+        type: string
+      symbol_role:
+        type: string
+        enum:
+        - actor_type
+        - entity_type
+        - role_type
+        - attribute_accessor
+        - measure_accessor
+        - relation_predicate
+        - action_predicate
+        - event_predicate
+        - state_predicate
+        - permission_predicate
+        - prohibition_predicate
+        - decision_domain
+        - decision_accessor
+        - decision_value
+        - state_domain
+        - state_accessor
+        - state_value
+        - transition_type
+        - transition_accessor
+        - unit_type
+        - abbreviation
+      canonical_concept_refs:
+        type: array
+        items:
+          type: string
+      context_refs:
+        type: array
+        items:
+          type: string
+      requested_name:
+        oneOf:
+        - type: string
+        - type: 'null'
+      signature:
+        $ref: '#/$defs/language_neutral_signature'
+      properties:
+        type: object
+      source_ir_element_ids:
+        type: array
+        items:
+          type: string
+        minItems: 1
+      shared:
+        type: boolean
+      formalizable:
+        type: boolean
+      reason:
+        type: string
+      origin:
+        type: string
+        enum:
+        - requirement
+        - context
+        - clarification
+      origin_ref:
+        type: string
+      unresolved:
+        type: array
+        items:
+          $ref: '#/$defs/unresolved_item'
+  shared_symbol_binding:
+    type: object
+    additionalProperties: false
+    required:
+    - binding_id
+    - ir_element_id
+    - semantic_role
+    - request_ref
+    - use
+    - formalizable
+    - reason
+    properties:
+      binding_id:
+        type: string
+      ir_element_id:
+        type: string
+      semantic_role:
+        type: string
+        enum:
+        - domain
+        - actor
+        - object
+        - attribute
+        - measure
+        - relation
+        - action
+        - event
+        - state
+        - permission
+        - prohibition
+        - decision_domain
+        - decision_accessor
+        - decision_value
+        - transition
+        - unit
+      request_ref:
+        type: string
+      use:
+        type: string
+        enum:
+        - quantify
+        - read
+        - apply
+        - assign
+        - compare
+        - relate
+        - constrain
+        - emit
+        - preserve
+      formalizable:
+        type: boolean
+      reason:
+        type: string
+  representation_constraint:
+    type: object
+    additionalProperties: false
+    required:
+    - constraint_id
+    - type
+    - subject_refs
+    - context_refs
+    - request_refs
+    - values
+    - source_ir_element_ids
+    - formalizable
+    - reason
+    - origin
+    - origin_ref
+    - unresolved
+    properties:
+      constraint_id:
+        type: string
+      type:
+        type: string
+        enum:
+        - closed_domain
+        - open_domain
+        - single_valued
+        - multi_valued
+        - mutually_exclusive_values
+        - distinct_values
+        - functional_relation
+        - total_relation
+        - symmetric_relation
+        - asymmetric_relation
+        - irreflexive_relation
+        - state_transition_required
+        - before_after_state_required
+        - event_ordering_required
+        - unit_preservation_required
+        - role_not_type
+        - relation_not_attribute
+        - unsupported
+      subject_refs:
+        type: array
+        items:
+          type: string
+      context_refs:
+        type: array
+        items:
+          type: string
+      request_refs:
+        type: array
+        items:
+          type: string
+      values:
+        type: array
+        items:
+          type: string
+      source_ir_element_ids:
+        type: array
+        items:
+          type: string
+      formalizable:
+        type: boolean
+      reason:
+        type: string
+      origin:
+        type: string
+        enum:
+        - requirement
+        - context
+        - clarification
+      origin_ref:
+        type: string
+      unresolved:
+        type: array
+        items:
+          $ref: '#/$defs/unresolved_item'
+  m_ir_output:
+    type: object
+    additionalProperties: false
+    required:
+    - requirement_id
+    - refinement_id
+    - formalization_status
+    - requirement_kind
+    - actors
+    - entities
+    - attributes
+    - actions
+    - events
+    - states
+    - conditions
+    - effects
+    - preconditions
+    - postconditions
+    - constraints
+    - derived_constraints
+    - temporal_constraints
+    - quantifiers
+    - definitions
+    - relationships
+    - logical_patterns
+    - scope
+    - dependencies
+    - assumptions
+    - preamble_requirements
+    - shared_symbol_bindings
+    - representation_constraints
+    - source_coverage
+    - unresolved_semantics
+    - formalization_concerns
+    - source_text
+    properties:
+      requirement_id:
+        type: string
+      refinement_id:
+        type: string
+      formalization_status:
+        type: string
+        enum:
+        - complete
+        - partial
+        - blocked
+        - unsupported
+      requirement_kind:
+        type: string
+        enum:
+        - behavior
+        - permission
+        - prohibition
+        - constraint
+        - invariant
+        - definition
+        - data
+        - temporal
+        - other
+      actors:
+        type: array
+        items:
+          type: object
+      entities:
+        type: array
+        items:
+          type: object
+      attributes:
+        type: array
+        items:
+          type: object
+      actions:
+        type: array
+        items:
+          type: object
+      events:
+        type: array
+        items:
+          type: object
+      states:
+        type: array
+        items:
+          type: object
+      conditions:
+        type: array
+        items:
+          type: object
+      effects:
+        type: array
+        items:
+          type: object
+      preconditions:
+        type: array
+        items:
+          type: object
+      postconditions:
+        type: array
+        items:
+          type: object
+      constraints:
+        type: array
+        items:
+          type: object
+      derived_constraints:
+        type: array
+        items:
+          type: object
+      temporal_constraints:
+        type: array
+        items:
+          type: object
+      quantifiers:
+        type: array
+        items:
+          type: object
+      definitions:
+        type: array
+        items:
+          type: object
+      relationships:
+        type: array
+        items:
+          type: object
+      dependencies:
+        type: array
+        items:
+          type: object
+      assumptions:
+        type: array
+        items:
+          type: object
+      unresolved_semantics:
+        type: array
+        items:
+          type: object
+      formalization_concerns:
+        type: array
+        items:
+          type: object
+      logical_patterns:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required:
+          - pattern_id
+          - type
+          - formalizable
+          properties:
+            pattern_id:
+              type: string
+            type:
+              type: string
+              enum: &id001
+              - condition_implies_effect
+              - action_implies_precondition
+              - condition_implies_prohibited_action
+              - condition_implies_permission
+              - condition_implies_required_action
+              - numeric_lower_bound
+              - numeric_upper_bound
+              - exact_value
+              - state_invariant
+              - relational_invariant
+              - cardinality
+              - definition
+              - unsupported
+            formalizable:
+              type: boolean
+          additionalProperties: true
+      scope:
+        type: object
+      preamble_requirements:
+        type: array
+        items:
+          $ref: '#/$defs/preamble_requirement'
+      shared_symbol_bindings:
+        type: array
+        items:
+          $ref: '#/$defs/shared_symbol_binding'
+      representation_constraints:
+        type: array
+        items:
+          $ref: '#/$defs/representation_constraint'
+      source_coverage:
+        type: array
+        minItems: 1
+        items:
+          type: object
+      source_text:
+        type: string
+  preamble_declaration:
+    type: object
+    additionalProperties: false
+    required:
+    - declaration_id
+    - kind
+    - name
+    - code
+    - lean_signature
+    - language_neutral_signature
+    - declared_symbol_ids
+    - depends_on_declaration_ids
+    - depends_on_symbol_ids
+    - built_in_dependencies
+    - canonical_concept_refs
+    - context_refs
+    - required_by_ir_ids
+    - required_by_request_ids
+    - representation_constraint_refs
+    - generation_reason
+    - status
+    properties:
+      declaration_id:
+        type: string
+      kind:
+        type: string
+        enum:
+        - structure
+        - inductive
+        - opaque
+        - abbreviation
+        - definition
+      name:
+        type: string
+      code:
+        type: string
+      lean_signature:
+        type: string
+      language_neutral_signature:
+        $ref: '#/$defs/language_neutral_signature'
+      declared_symbol_ids:
+        type: array
+        items:
+          type: string
+      depends_on_declaration_ids:
+        type: array
+        items:
+          type: string
+      depends_on_symbol_ids:
+        type: array
+        items:
+          type: string
+      built_in_dependencies:
+        type: array
+        items:
+          type: string
+      canonical_concept_refs:
+        type: array
+        items:
+          type: string
+      context_refs:
+        type: array
+        items:
+          type: string
+      required_by_ir_ids:
+        type: array
+        items:
+          type: string
+      required_by_request_ids:
+        type: array
+        items:
+          type: string
+      representation_constraint_refs:
+        type: array
+        items:
+          type: string
+      generation_reason:
+        type: string
+      status:
+        type: string
+        enum:
+        - generated
+        - preserved
+        - superseded
+        - blocked
+  preamble_symbol:
+    type: object
+    additionalProperties: false
+    required:
+    - symbol_id
+    - name
+    - kind
+    - signature
+    - lean_signature
+    - declaration_ref
+    - parent_symbol_id
+    - canonical_concept_refs
+    - context_refs
+    - required_by_ir_ids
+    - required_by_request_ids
+    - properties
+    - status
+    properties:
+      symbol_id:
+        type: string
+      name:
+        type: string
+      kind:
+        type: string
+        enum:
+        - type
+        - field
+        - accessor
+        - predicate
+        - relation
+        - action
+        - event
+        - state_domain
+        - state_value
+        - decision_domain
+        - decision_value
+        - transition
+        - unit
+        - abbreviation
+      signature:
+        $ref: '#/$defs/language_neutral_signature'
+      lean_signature:
+        type: string
+      declaration_ref:
+        type: string
+      parent_symbol_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      canonical_concept_refs:
+        type: array
+        items:
+          type: string
+      context_refs:
+        type: array
+        items:
+          type: string
+      required_by_ir_ids:
+        type: array
+        items:
+          type: string
+      required_by_request_ids:
+        type: array
+        items:
+          type: string
+      properties:
+        type: object
+      status:
+        type: string
+        enum:
+        - generated
+        - preserved
+        - superseded
+        - blocked
+  request_resolution:
+    type: object
+    additionalProperties: false
+    required:
+    - request_id
+    - ir_id
+    - status
+    - symbol_ids
+    - declaration_ids
+    - merged_with_request_ids
+    - reason
+    properties:
+      request_id:
+        type: string
+      ir_id:
+        type: string
+      status:
+        type: string
+        enum:
+        - resolved
+        - partially_resolved
+        - blocked
+        - unsupported
+        - superseded
+      symbol_ids:
+        type: array
+        items:
+          type: string
+      declaration_ids:
+        type: array
+        items:
+          type: string
+      merged_with_request_ids:
+        type: array
+        items:
+          type: string
+      reason:
+        type: string
+  binding_resolution:
+    type: object
+    additionalProperties: false
+    required:
+    - ir_id
+    - binding_id
+    - ir_element_id
+    - request_ref
+    - semantic_role
+    - use
+    - status
+    - symbol_ids
+    - reason
+    properties:
+      ir_id:
+        type: string
+      binding_id:
+        type: string
+      ir_element_id:
+        type: string
+      request_ref:
+        type: string
+      semantic_role:
+        type: string
+      use:
+        type: string
+      status:
+        type: string
+        enum:
+        - resolved
+        - partially_resolved
+        - blocked
+        - invalid
+      symbol_ids:
+        type: array
+        items:
+          type: string
+      reason:
+        type: string
+  m_preamble_output:
+    type: object
+    additionalProperties: false
+    required:
+    - document_id
+    - generation_status
+    - lean_version
+    - library_profile
+    - namespace_candidate
+    - declarations
+    - symbol_table
+    - request_resolution
+    - binding_resolution
+    - coverage
+    - blocked_requests
+    - blocked_symbols
+    - request_conflicts
+    - generation_concerns
+    - generation_audit
+    properties:
+      document_id:
+        type: string
+      generation_status:
+        type: string
+        enum:
+        - complete
+        - partial
+        - blocked
+        - unsupported
+      lean_version:
+        const: '4'
+      library_profile:
+        type: string
+        enum:
+        - core_only
+        - mathlib
+      namespace_candidate:
+        type: string
+      declarations:
+        type: array
+        items:
+          $ref: '#/$defs/preamble_declaration'
+      symbol_table:
+        type: object
+        additionalProperties: false
+        required:
+        - symbols
+        properties:
+          symbols:
+            type: array
+            items:
+              $ref: '#/$defs/preamble_symbol'
+      request_resolution:
+        type: array
+        items:
+          $ref: '#/$defs/request_resolution'
+      binding_resolution:
+        type: array
+        items:
+          $ref: '#/$defs/binding_resolution'
+      coverage:
+        type: array
+        items:
+          type: object
+      blocked_requests:
+        type: array
+        items:
+          type: object
+      blocked_symbols:
+        type: array
+        items:
+          type: object
+      request_conflicts:
+        type: array
+        items:
+          type: object
+      generation_concerns:
+        type: array
+        items:
+          type: object
+      generation_audit:
+        type: array
+        items:
+          type: object
+  m5_dependency:
+    type: object
+    additionalProperties: false
+    required:
+    - source
+    - name
+    properties:
+      source:
+        type: string
+        enum:
+        - preamble
+        - local
+        - builtin
+      symbol_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      declaration_id:
+        oneOf:
+        - type: string
+        - type: 'null'
+      name:
+        type: string
+  m5_declaration:
+    type: object
+    additionalProperties: false
+    required:
+    - declaration_id
+    - kind
+    - name
+    - code
+    - dependencies
+    - ir_element_ids
+    - assumptions
+    - status
+    properties:
+      declaration_id:
+        type: string
+      kind:
+        type: string
+        enum:
+        - abbreviation
+        - definition
+        - predicate
+        - requirement
+      name:
+        type: string
+      code:
+        type: string
+      dependencies:
+        type: array
+        items:
+          $ref: '#/$defs/m5_dependency'
+      ir_element_ids:
+        type: array
+        items:
+          type: string
+      assumptions:
+        type: array
+        items:
+          type: object
+      status:
+        type: string
+        enum:
+        - generated
+        - partial
+        - blocked
+  m5_semantic_role_binding:
+    type: object
+    additionalProperties: false
+    required:
+    - ir_element_ids
+    - local_declaration_ids
+    - preamble_symbol_ids
+    properties:
+      ir_element_ids:
+        type: array
+        items:
+          type: string
+      local_declaration_ids:
+        type: array
+        items:
+          type: string
+      preamble_symbol_ids:
+        type: array
+        items:
+          type: string
+  m5_semantic_bindings:
+    type: object
+    additionalProperties: false
+    required:
+    - trigger
+    - precondition
+    - effect
+    - permission
+    - prohibition
+    - constraints
+    - invariant
+    - decision_accessor
+    - decision_values
+    - actions
+    - relationships
+    - requirement
+    properties:
+      trigger:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      precondition:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      effect:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      permission:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      prohibition:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      constraints:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      invariant:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      decision_accessor:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      decision_values:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      actions:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      relationships:
+        $ref: '#/$defs/m5_semantic_role_binding'
+      requirement:
+        $ref: '#/$defs/m5_semantic_role_binding'
+  m5_output:
+    type: object
+    additionalProperties: false
+    required:
+    - document_id
+    - requirement_id
+    - ir_id
+    - formalization_status
+    - logical_patterns
+    - requirement_proposition
+    - semantic_bindings
+    - declarations
+    - coverage
+    - assumptions
+    - formalization_concerns
+    - untranslated
+    properties:
+      document_id:
+        type: string
+      requirement_id:
+        type: string
+      ir_id:
+        type: string
+      formalization_status:
+        type: string
+        enum:
+        - complete
+        - partial
+        - blocked
+        - unsupported
+      logical_patterns:
+        type: array
+        items:
+          type: string
+          enum: *id001
+      requirement_proposition:
+        type: object
+        additionalProperties: false
+        required:
+        - name
+        - declaration_id
+        - emitted
+        properties:
+          name:
+            type: string
+          declaration_id:
+            oneOf:
+            - type: string
+            - type: 'null'
+          emitted:
+            type: boolean
+      semantic_bindings:
+        $ref: '#/$defs/m5_semantic_bindings'
+      declarations:
+        type: array
+        items:
+          $ref: '#/$defs/m5_declaration'
+      coverage:
+        type: array
+        items:
+          type: object
+      assumptions:
+        type: array
+        items:
+          type: object
+      formalization_concerns:
+        type: array
+        items:
+          type: object
+      untranslated:
+        type: array
+        items:
+          type: string
+modules:
+  m1_requirement_extraction:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - document_name
+      - line_range
+      - chunk_id
+      - numbered_document
+      properties:
+        document_id:
+          type: string
+        document_name:
+          type: string
+        line_range:
+          type: string
+        chunk_id:
+          type: string
+        numbered_document:
+          type: string
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - requirements
+      properties:
+        requirements:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - text
+            - start_line
+            - end_line
+            - source_label
+            - requirement_type
+            - extraction_basis
+            - confidence
+            properties:
+              text:
+                type: string
+              start_line:
+                $ref: '#/$defs/nullable_line'
+              end_line:
+                $ref: '#/$defs/nullable_line'
+              source_label:
+                oneOf:
+                - type: string
+                - type: 'null'
+              requirement_type:
+                type: string
+                enum:
+                - functional
+                - performance
+                - security
+                - availability
+                - reliability
+                - usability
+                - interface
+                - data
+                - business_rule
+                - constraint
+                - definition
+                - assumption
+                - other
+              extraction_basis:
+                type: string
+                enum:
+                - explicit_normative_marker
+                - normative_declarative_rule
+                - explicit_assumption
+                - normative_definition
+              confidence:
+                type: string
+                enum:
+                - high
+                - medium
+                - low
+    post_schema_validations:
+    - exact text and span validation
+    - chunk-overlap deduplication
+    - requirement ID assignment
+  m_context:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - document_name
+      - numbered_document
+      properties:
+        document_id:
+          type: string
+        document_name:
+          type: string
+        numbered_document:
+          type: string
+    output_schema:
+      $ref: '#/$defs/global_context'
+    post_schema_validations:
+    - evidence validation
+    - exact deduplication
+    - context and canonical ID assignment
+  m2_ambiguity:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - requirement_id
+      - requirement_text
+      - known_context
+      - document_context
+      properties:
+        document_id:
+          type: string
+        requirement_id:
+          type: string
+        requirement_text:
+          type: string
+        known_context:
+          $ref: '#/$defs/global_context'
+        document_context:
+          type: string
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - requirement_id
+      - is_ambiguous
+      - formalization_readiness
+      - ambiguities
+      properties:
+        requirement_id:
+          type: string
+        is_ambiguous:
+          type: boolean
+        formalization_readiness:
+          type: string
+          enum:
+          - ready
+          - partial
+          - blocked
+          - unsupported
+        ambiguities:
+          type: array
+          items:
+            $ref: '#/$defs/ambiguity'
+    post_schema_validations:
+    - target and evidence validation
+    - context-reference validation
+    - ambiguity ID assignment
+  m3_clarification:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - requirement_id
+      - requirement_text
+      - ambiguities
+      - explicit_context
+      properties:
+        document_id:
+          type: string
+        requirement_id:
+          type: string
+        requirement_text:
+          type: string
+        ambiguities:
+          type: array
+          items:
+            $ref: '#/$defs/identified_ambiguity'
+        explicit_context:
+          $ref: '#/$defs/global_context'
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - requirement_id
+      - clarification_status
+      - clarification_questions
+      - question_generation_concerns
+      properties:
+        requirement_id:
+          type: string
+        clarification_status:
+          type: string
+          enum:
+          - questions_generated
+          - no_questions_required
+          - blocked
+        clarification_questions:
+          type: array
+          items:
+            $ref: '#/$defs/clarification_question'
+        question_generation_concerns:
+          type: array
+          items:
+            type: object
+    post_schema_validations:
+    - ambiguity coverage
+    - decision-group consistency
+    - semantic-effect scope validation
+    - clarification ID assignment
+  m4_refinement:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - requirement_id
+      - requirement_text
+      - ambiguities
+      - clarification_questions
+      - clarification_answers
+      - explicit_context
+      properties:
+        document_id:
+          type: string
+        requirement_id:
+          type: string
+        requirement_text:
+          type: string
+        ambiguities:
+          type: array
+          items:
+            $ref: '#/$defs/identified_ambiguity'
+        clarification_questions:
+          type: array
+          items:
+            $ref: '#/$defs/clarification_question'
+        clarification_answers:
+          type: array
+          items:
+            $ref: '#/$defs/clarification_answer'
+        explicit_context:
+          $ref: '#/$defs/global_context'
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - requirement_id
+      - refinement_status
+      - refined_requirements
+      - semantic_changes
+      - context_updates
+      - decision_application
+      - remaining_ambiguities
+      - formalization_concerns
+      - answer_application_concerns
+      properties:
+        requirement_id:
+          type: string
+        refinement_status:
+          type: string
+          enum:
+          - unchanged
+          - refined
+          - partially_refined
+          - blocked
+        refined_requirements:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - sequence
+            - text
+            properties:
+              sequence:
+                type: integer
+                minimum: 1
+              text:
+                type: string
+        semantic_changes:
+          type: array
+          items:
+            type: object
+        context_updates:
+          type: array
+          items:
+            $ref: '#/$defs/semantic_effect'
+        decision_application:
+          type: array
+          items:
+            type: object
+        remaining_ambiguities:
+          type: array
+          items:
+            $ref: '#/$defs/remaining_ambiguity'
+        formalization_concerns:
+          type: array
+          items:
+            type: object
+        answer_application_concerns:
+          type: array
+          items:
+            type: object
+    post_schema_validations:
+    - unchanged-text equality
+    - answer authority
+    - context-update scope
+    - decision-application indices
+    - refinement sequence
+  m_context_refined:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - numbered_document
+      - previous_context
+      - refined_requirements
+      - validated_decisions
+      - context_updates
+      - remaining_ambiguities
+      properties:
+        document_id:
+          type: string
+        numbered_document:
+          type: string
+        previous_context:
+          $ref: '#/$defs/global_context'
+        refined_requirements:
+          type: array
+          items:
+            type: object
+        validated_decisions:
+          type: array
+          items:
+            $ref: '#/$defs/clarification_answer'
+        context_updates:
+          type: array
+          items:
+            $ref: '#/$defs/semantic_effect'
+        remaining_ambiguities:
+          type: array
+          items:
+            $ref: '#/$defs/remaining_ambiguity'
+    output_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - update_status
+      - actors
+      - entities
+      - roles
+      - attributes
+      - actions
+      - events
+      - states
+      - value_domains
+      - decision_domains
+      - distinct_values
+      - definitions
+      - relationships
+      - relationship_characteristics
+      - representation_characteristics
+      - units
+      - constraints
+      - unresolved_relationships
+      - unresolved_domain_properties
+      - context_concerns
+      - context_conflicts
+      - update_audit
+      - update_concerns
+      properties:
+        document_id:
+          type: string
+        update_status:
+          type: string
+          enum:
+          - unchanged
+          - updated
+          - partially_updated
+          - blocked
+        actors: *id002
+        entities: *id003
+        roles: *id004
+        attributes: *id005
+        actions: *id006
+        events: *id007
+        states: *id008
+        value_domains: *id009
+        decision_domains: *id010
+        distinct_values: *id011
+        definitions: *id012
+        relationships: *id013
+        relationship_characteristics: *id014
+        representation_characteristics: *id015
+        units: *id016
+        constraints: *id017
+        unresolved_relationships: *id018
+        unresolved_domain_properties: *id019
+        context_concerns: *id020
+        context_conflicts:
+          type: array
+          items:
+            type: object
+        update_audit:
+          type: array
+          items:
+            type: object
+        update_concerns:
+          type: array
+          items:
+            type: object
+    post_schema_validations:
+    - carry-forward completeness
+    - update authority
+    - evidence validation
+    - new context ID assignment
+  m_ir:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - requirement_id
+      - refinement_id
+      - refined_text
+      - original_text
+      - updated_context
+      - clarification_decisions
+      - open_issues
+      properties:
+        document_id:
+          type: string
+        requirement_id:
+          type: string
+        refinement_id:
+          type: string
+        refined_text:
+          type: string
+        original_text:
+          type: string
+        updated_context:
+          $ref: '#/$defs/global_context'
+        clarification_decisions:
+          type: array
+          items:
+            $ref: '#/$defs/clarification_answer'
+        open_issues:
+          type: array
+          items:
+            type: object
+    output_schema:
+      $ref: '#/$defs/m_ir_output'
+    post_schema_validations:
+    - local-reference validation
+    - canonical-reference validation
+    - PREQ/RBIND/RCON validation
+    - coverage and origin validation
+    - IR ID assignment
+  m_preamble:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - updated_context
+      - requirement_irs
+      - refined_requirements
+      - generation_policy
+      - existing_preamble
+      - open_issues
+      properties:
+        document_id:
+          type: string
+        updated_context:
+          $ref: '#/$defs/global_context'
+        requirement_irs:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - ir_id
+            - requirement_id
+            - ir
+            properties:
+              ir_id:
+                type: string
+              requirement_id:
+                type: string
+              ir:
+                $ref: '#/$defs/m_ir_output'
+        refined_requirements:
+          type: array
+          items:
+            type: object
+        generation_policy:
+          type: object
+        existing_preamble:
+          oneOf:
+          - type: object
+          - type: 'null'
+        open_issues:
+          type: array
+          items:
+            type: object
+    output_schema:
+      $ref: '#/$defs/m_preamble_output'
+    post_schema_validations:
+    - request merge and conflict validation
+    - symbol/declaration uniqueness
+    - dependency DAG
+    - forbidden-token scan
+    - request and binding coverage
+    - preamble compilation
+  m5_lean:
+    input_schema:
+      type: object
+      additionalProperties: false
+      required:
+      - document_id
+      - requirement_id
+      - ir_id
+      - requirement_kind
+      - requirement_text
+      - refined_requirement_text
+      - ir_json
+      - preamble_declarations
+      - preamble_symbol_table
+      - request_resolution
+      - binding_resolution
+      - requirement_generation_policy
+      - open_questions
+      properties:
+        document_id:
+          type: string
+        requirement_id:
+          type: string
+        ir_id:
+          type: string
+        requirement_kind:
+          type: string
+        requirement_text:
+          type: string
+        refined_requirement_text:
+          type: string
+        ir_json:
+          $ref: '#/$defs/m_ir_output'
+        preamble_declarations:
+          type: array
+          items:
+            $ref: '#/$defs/preamble_declaration'
+        preamble_symbol_table:
+          type: object
+          additionalProperties: false
+          required:
+          - symbols
+          properties:
+            symbols:
+              type: array
+              items:
+                $ref: '#/$defs/preamble_symbol'
+        request_resolution:
+          type: array
+          items:
+            $ref: '#/$defs/request_resolution'
+        binding_resolution:
+          type: array
+          items:
+            $ref: '#/$defs/binding_resolution'
+        requirement_generation_policy:
+          type: object
+        open_questions:
+          type: array
+          items:
+            type: object
+    output_schema:
+      $ref: '#/$defs/m5_output'
+    post_schema_validations:
+    - exact symbol-ID resolution
+    - forbidden-token and HTML scan
+    - dependency validation
+    - coverage validation
+    - per-requirement Lean compilation
