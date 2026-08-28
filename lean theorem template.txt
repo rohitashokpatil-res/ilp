@@ -1,0 +1,318 @@
+import Mathlib
+
+set_option autoImplicit false
+
+namespace SDLCVerification
+
+/- =========================================================
+1. Pairwise Conflict
+========================================================= -/
+
+theorem pairwise_conflict
+  (P : Prop)
+  (hPos : P)
+  (hNeg : ¬ P)
+  :
+  False :=
+by
+  exact hNeg hPos
+
+
+/- =========================================================
+2. Global Consistency
+========================================================= -/
+
+theorem global_consistency
+  {Model : Type}
+  (Req1 Req2 Req3 : Model → Prop)
+  (m : Model)
+  (h1 : Req1 m)
+  (h2 : Req2 m)
+  (h3 : Req3 m)
+  :
+  ∃ x, Req1 x ∧ Req2 x ∧ Req3 x :=
+by
+  refine ⟨m, ?_⟩
+  exact ⟨h1, h2, h3⟩
+
+
+/- =========================================================
+3. Minimal Unsatisfiable Core
+========================================================= -/
+
+theorem mus_core
+  (A B C : Prop)
+  (ha : A)
+  (hb : B)
+  (hc : C)
+  (conflict : A ∧ B ∧ C → False)
+  :
+  False :=
+by
+  exact conflict ⟨ha,hb,hc⟩
+
+
+/- =========================================================
+4. Vacuity Detection
+========================================================= -/
+
+theorem vacuous_rule
+  (Trigger Action : Prop)
+  (impossible : ¬ Trigger)
+  :
+  Trigger → Action :=
+by
+  intro h
+  exact False.elim (impossible h)
+
+
+/- =========================================================
+5. Output Determinism
+========================================================= -/
+
+theorem output_determinism
+  {Output : Type}
+  (o₁ o₂ : Output)
+  (h₁ : o₁ = o₂)
+  :
+  o₁ = o₂ :=
+by
+  exact h₁
+
+
+theorem output_nondeterminism
+  {Output : Type}
+  (o₁ o₂ : Output)
+  (different : o₁ ≠ o₂)
+  :
+  o₁ ≠ o₂ :=
+by
+  exact different
+
+
+/-
+=========================================================
+6. Invariant Preservation
+=========================================================
+-/
+
+theorem invariant_preserved
+  (Invariant Transition : Prop)
+  (preserve : Transition → Invariant)
+  (step : Transition)
+  :
+  Invariant :=
+by
+  exact preserve step
+
+
+theorem invariant_violation
+  (Invariant Transition : Prop)
+  (preserve : Transition → Invariant)
+  (violate : Transition → ¬ Invariant)
+  (step : Transition)
+  :
+  False :=
+by
+  have h1 : Invariant := preserve step
+  have h2 : ¬ Invariant := violate step
+  exact h2 h1
+
+
+/-
+=========================================================
+7. Numeric Bound Conflict
+=========================================================
+-/
+
+theorem range_conflict
+  (x lower upper : Int)
+  (hLower : x ≥ lower)
+  (hUpper : x ≤ upper)
+  (badRange : upper < lower)
+  :
+  False :=
+by
+  omega
+
+
+/-
+=========================================================
+8. Deadlock Freedom
+=========================================================
+-/
+
+theorem deadlock_detected
+  (State Progress : Prop)
+  (s : State)
+  (mustProgress : State → Progress)
+  (blocked : State → ¬ Progress)
+  :
+  False :=
+by
+  have hp : Progress := mustProgress s
+  have hn : ¬ Progress := blocked s
+  exact hn hp
+
+
+/-
+=========================================================
+9. Completeness Gap
+=========================================================
+-/
+
+theorem completeness_gap
+  (x : Int)
+  (notLow : ¬ (x < 18))
+  (notHigh : ¬ (x > 24))
+  :
+  18 ≤ x ∧ x ≤ 24 :=
+by
+  omega
+
+
+/-
+=========================================================
+10. Redundancy / Subsumption
+=========================================================
+-/
+
+theorem subsumption
+  (Strong Weak : Prop)
+  (h : Strong → Weak)
+  :
+  Strong → Weak :=
+by
+  intro hs
+  exact h hs
+
+
+/-
+=========================================================
+11. Cyclic Dependency
+=========================================================
+-/
+
+theorem cyclic_dependency
+  {Node : Type}
+  (before : Node → Node → Prop)
+  (a b : Node)
+  (ab : before a b)
+  (ba : before b a)
+  (trans :
+      ∀ x y z,
+      before x y →
+      before y z →
+      before x z)
+  (acyclic :
+      ∀ x, ¬ before x x)
+  :
+  False :=
+by
+  have aa : before a a :=
+    trans a b a ab ba
+  exact (acyclic a) aa
+
+
+/-
+=========================================================
+12. Recoverability
+=========================================================
+-/
+
+theorem recoverable_state
+  {State : Type}
+  (forward rollback : State → State)
+  (inverse :
+      ∀ s,
+      rollback (forward s) = s)
+  (s : State)
+  :
+  rollback (forward s) = s :=
+by
+  exact inverse s
+
+
+/-
+=========================================================
+13. Separation of Duty
+=========================================================
+-/
+
+theorem separation_of_duty
+  {User : Type}
+  (Approve Own : User → Prop)
+  (u : User)
+  (policy :
+      Approve u → ¬ Own u)
+  (approve : Approve u)
+  (own : Own u)
+  :
+  False :=
+by
+  have h : ¬ Own u :=
+    policy approve
+  exact h own
+
+
+/-
+=========================================================
+14. Resource Conservation
+=========================================================
+-/
+
+theorem resource_safe
+  (capacity used : Nat)
+  (ok : used ≤ capacity)
+  :
+  used ≤ capacity :=
+by
+  exact ok
+
+
+theorem resource_overcommit
+  (capacity used : Nat)
+  (bad : used > capacity)
+  :
+  used > capacity :=
+by
+  exact bad
+
+
+/-
+=========================================================
+15. Non-Oscillation / Convergence
+=========================================================
+-/
+
+theorem convergence
+  {State : Type}
+  (measure : State → Nat)
+  (next : State → State)
+  (s : State)
+  (decreases :
+      measure (next s)
+        < measure s)
+  :
+  measure (next s)
+      < measure s :=
+by
+  exact decreases
+
+
+theorem oscillation
+  {State : Type}
+  (next : State → State)
+  (s1 s2 : State)
+  (h1 : next s1 = s2)
+  (h2 : next s2 = s1)
+  (different : s1 ≠ s2)
+  :
+  ∃ a b,
+    a ≠ b ∧
+    next a = b ∧
+    next b = a :=
+by
+  refine ⟨s1,s2,different,h1,h2⟩
+
+end SDLCVerification
